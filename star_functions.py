@@ -1272,18 +1272,29 @@ def get_db_connection():
     #     host='localhost',
     #     user='nana',
     #     database='stars_db') this is mysql stuff here
-    conn = db.connect('modes.db', timeout=30.0)
+    conn = db.connect('modes.db', timeout=120.0)
     conn.execute("PRAGMA journal_mode=WAL")
     return conn
 
-def execute_query_and_close(query):
-    conn = get_db_connection()
+def execute_query_and_close(query, retries = 5):
+    try: 
+        conn = get_db_connection()
 
-    cursor = conn.cursor()
-    cursor.execute(query)
-    conn.commit()
-    cursor.close()
-    conn.close()
+        cursor = conn.cursor()
+        cursor.execute("BEGIN IMMEDIATE")
+        cursor.execute(query)
+        conn.commit()
+        cursor.close()
+        conn.close()
+    except db.OperationalError as e:
+        if retries > 0:
+            print(f"OperationalError encountered. Retrying... ({retries} attempts left)")
+            time.sleep(1)  # Wait a bit before retrying
+            execute_query_and_close(query, retries - 1)
+        else:
+            print("Max retries reached. Could not execute query.")
+            raise
+
     
 def load_star_table():
     filename = "KICids.csv"
@@ -1494,7 +1505,7 @@ def restart_dead_tasks():
         SET started = NULL,
         process_id = NULL
         WHERE finished IS NULL
-        AND started < "{Time(Time.now() - TimeDelta(7200, format = "sec"), format = "isot")}"; 
+        AND started < "{Time(Time.now() - TimeDelta(600, format = "sec"), format = "isot")}"; 
         """
     print(query)
     cursor.execute(query)
