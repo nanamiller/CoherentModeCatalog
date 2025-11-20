@@ -386,7 +386,7 @@ def get_filtered_peaks(num_of_peaks, xs, ys, kic_id, median_window = None, media
         indxs, _ = find_peaks(ys)
         filtered = []
 
-        if len(indxs) == 0:
+        if np.isnan(indxs).all() or len(indxs) == 0:
             print("get_filtered_peaks(): no peaks found")
             return np.array(filtered)
         
@@ -397,8 +397,9 @@ def get_filtered_peaks(num_of_peaks, xs, ys, kic_id, median_window = None, media
             too_short = ys[indices] < median_factor * y_medians[indices]
             indices = np.delete(indices, too_short)
         
-        if len(indices) == 0:
+        if np.isnan(indices).all() or len(indices) == 0:
             print("get_filtered_peaks(): no peaks tall enough")
+
             return np.array(filtered)
 
         #checks if the peak is within some threshold by comparing to those that already passed frequencies
@@ -987,7 +988,8 @@ def find_modes_in_star(kicID, plots = False, save = False, inject_rng = None, in
     #find periodogram peaks in region A
     indices = get_filtered_peaks(max_peaks, freq_mini, power_mini/RunningMedian_power, kicID,
                                  median_window = median_window, median_factor = median_factor)
-    if len(indices) == 0:
+    
+    if np.isnan(indices).all():
         print(f"No peaks found in {kicID}")
         return None
     
