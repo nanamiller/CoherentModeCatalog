@@ -17,6 +17,7 @@ Functions for finding coherent modes in Kepler light curves.
 - db username (not nana), needs to be user setable
 - need to add A,B amplitudes to the mode table
 
+
 ##calling sequence
 - `python star_functions.py schema` #creates the database schema
 - `python star_functions.py db` #creates the database and fills the task table
@@ -1264,7 +1265,8 @@ def setup_db():
     kics2 = ["KIC000520290", "KIC009111849", "KIC009845898", "KIC006116172", "KIC011013201",
     "KIC005617259", "KIC009289704", "KIC007767699", "KIC008249829", "KIC009895543"]
     #load_task_table() laods all possible kics unless given a kic list
-    load_task_table()
+    kic_fail = ["KIC005024550"]
+    load_task_table(kic_fail)
 
 #stuff here might change
 #write a setup sql database code, runs the sql file into sql lite
@@ -1274,7 +1276,7 @@ def get_db_connection():
     #     host='localhost',
     #     user='nana',
     #     database='stars_db') this is mysql stuff here
-    conn = db.connect('modes.db', timeout=120.0)
+    conn = db.connect('2025_12_28_test.db', timeout=120.0)
     conn.execute("PRAGMA journal_mode=WAL")
     return conn
 
@@ -1379,31 +1381,7 @@ def update_error_message(star_id, dataset_id, error_message):
     
 
 def start_one_task():
-    #run two queries
-    #ask for unstarted task, mark the task as started
-
-    # conn = get_db_connection()
-    # cursor = conn.cursor()
-    # query1 = "SELECT star_id, dataset_id FROM task WHERE started IS NULL LIMIT 1;"
-    # cursor.execute(query1)
-    # foo = cursor.fetchall()
-    # if len(foo) == 0:
-    #     print("No unstarted tasks available.")
-    #     cursor.close()
-    #     conn.close()
-    #     sys.exit(0)
-    # star_id, dataset_id = foo[0]
-       
-    # query2 = f"""UPDATE task SET 
-    # started = "{Time(Time.now(), format = "isot")}", 
-    # process_id = {os.getpid()} WHERE star_id = "{star_id}" AND dataset_id = "{dataset_id}";"""
-    # cursor.execute(query2)
-    # conn.commit()
-    # cursor.close()
-    # conn.close()
-    # return star_id, dataset_id
-
-    ##THIS WAS CLAUDED, CONFIRM EVERYTHING IS OKAY
+   
     conn = get_db_connection()
     conn.isolation_level = None  # autocommit off
     cursor = conn.cursor()
@@ -1475,6 +1453,8 @@ def output_modes_to_db(star_id, dataset_id, output_table):
 #then do one task ten times aka testing
 
 def end_one_task(star_id, dataset_id):
+    ##change this for when there is an error message
+    #if error message is not null then do not set finished
     
     query = f"""UPDATE task SET 
     finished = "{Time(Time.now(), format = "isot")}" 
@@ -1492,16 +1472,20 @@ def create_schema():
     conn.close()
     print("Database schema created successfully.")
 
+def restart_failed_tasks():
+    """
+    ##Bugs: 
+    - The error_message query is way too universal
+    """
+    query = f"""
+        UPDATE task
+        SET finished = NULL,
+        error_message = NULL,
+        message = NULL
+        WHERE error_message IS NOT NULL; 
+        """
+    execute_query_and_close(query)
 
-#code outline code 
-#def restart_dead_tasks():
-# if started > "now - 1day" and finished is null: use time as a string now - 1day"
-#and ended is null then set started and process_id to null
-
-def restart_dead_tasks():
-   
-    conn = get_db_connection()
-    cursor = conn.cursor()
     query = f"""
         UPDATE task
         SET started = NULL,
@@ -1509,10 +1493,7 @@ def restart_dead_tasks():
         WHERE finished IS NULL
         AND started < "{Time(Time.now() - TimeDelta(600, format = "sec"), format = "isot")}"; 
         """
-    print(query)
-    cursor.execute(query)
-    conn.commit()
-    conn.close()
+    execute_query_and_close(query)
     
 
 
@@ -1551,12 +1532,12 @@ def main():
     
     if len(sys.argv) > 1 and sys.argv[1] == "cleanup":
         while(True):
-            restart_dead_tasks()
-            time.sleep(300)
-            print("Dead tasks restarted.")
+            restart_failed_tasks()
+            print("Failed tasks restarted.")
         return
 
     if len(sys.argv) > 1 and sys.argv[1] == "worker":
+        time.sleep(10)
         while(True):
             run_one_task()
         return
@@ -1565,7 +1546,7 @@ def main():
     print("Usage:")
     print("  python star_functions.py db        # to setup the database")
     print("  python star_functions.py schema    # to create the database schema")
-    print("  python star_functions.py cleanup   # to restart dead tasks")
+    print("  python star_functions.py cleanup   # to restart failed tasks")
     print("  python star_functions.py worker    # to run as a worker process")
     
     return
