@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS task (
     star_id VARCHAR(32),
     dataset_id VARCHAR(32),
     process_id VARCHAR(32) NULL,
+    code_version VARCHAR(32) NULL,
     started TIMESTAMP NULL,
     finished TIMESTAMP NULL,
     message VARCHAR(256) NULL,
@@ -45,7 +46,8 @@ CREATE TABLE mode (
     delta_chi_squared DOUBLE,
     frequency_region_A DOUBLE,
     phase_uncertainty_jackknife DOUBLE,
-    phase_uncertainty_split DOUBLE
+    phase_uncertainty_split DOUBLE,
+    parent_mode_id INTEGER NULL  
 );
 
 
