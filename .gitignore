@@ -4,5 +4,7 @@
 .ipynb*
 *.txt
 *.dat
+.DS*
+__py*
 
 
