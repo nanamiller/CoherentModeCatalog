@@ -1265,7 +1265,12 @@ def setup_db():
     kics2 = ["KIC000520290", "KIC009111849", "KIC009845898", "KIC006116172", "KIC011013201",
     "KIC005617259", "KIC009289704", "KIC007767699", "KIC008249829", "KIC009895543"]
     #load_task_table() laods all possible kics unless given a kic list
-    kic_fail = ["KIC005024550"]
+    # KIC006448678
+    # KIC005112855
+    # KIC005024550
+    # KIC012251995
+    kic_fail = ["KIC005112738", "KIC005112705", "KIC005112855", "KIC012251995"]
+
     load_task_table(kic_fail)
 
 #stuff here might change
@@ -1276,7 +1281,10 @@ def get_db_connection():
     #     host='localhost',
     #     user='nana',
     #     database='stars_db') this is mysql stuff here
-    conn = db.connect('2025_12_28_test.db', timeout=120.0)
+    # conn = db.connect('modes.db.2025-12-28.db', timeout=120.0)
+    #aaamodes_copy.db2025-12-28
+    conn = db.connect('modes.db', timeout=120.0)
+
     conn.execute("PRAGMA journal_mode=WAL")
     return conn
 
@@ -1501,6 +1509,7 @@ def run_one_task():
     star_id, dataset_id = start_one_task()
     dataset_id = "Kepler_long"  #keep it lc for now
     print(f"start_one_task() selected star_id={star_id}, dataset_id={dataset_id}")
+    
     result_table = find_modes_in_star(star_id)
 
     if result_table is None:
@@ -1514,6 +1523,8 @@ def run_one_task():
         output_modes_to_db(star_id, dataset_id, result_table)
 
     end_one_task(star_id, dataset_id)
+    
+   
 
 #running sql file
 #mysql -u nana -p stars_db < mysql_schema.sql
@@ -1533,7 +1544,7 @@ def main():
     if len(sys.argv) > 1 and sys.argv[1] == "cleanup":
         while(True):
             restart_failed_tasks()
-            print("Failed tasks restarted.")
+            print("Failed tasks restarted.") 
         return
 
     if len(sys.argv) > 1 and sys.argv[1] == "worker":
@@ -1550,8 +1561,6 @@ def main():
     print("  python star_functions.py worker    # to run as a worker process")
     
     return
-
-    
 
 if __name__ == "__main__":
     main()
