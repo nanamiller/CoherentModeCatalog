@@ -1548,7 +1548,7 @@ def main():
         return
 
     if len(sys.argv) > 1 and sys.argv[1] == "worker":
-        time.sleep(10)
+        time.sleep(30)
         while(True):
             run_one_task()
         return
