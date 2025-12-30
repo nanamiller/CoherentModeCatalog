@@ -1542,9 +1542,8 @@ def main():
         return
     
     if len(sys.argv) > 1 and sys.argv[1] == "cleanup":
-        while(True):
-            restart_failed_tasks()
-            print("Failed tasks restarted.") 
+        restart_failed_tasks()
+        print("Failed tasks restarted.") 
         return
 
     if len(sys.argv) > 1 and sys.argv[1] == "worker":
