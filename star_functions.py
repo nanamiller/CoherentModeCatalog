@@ -129,6 +129,7 @@ def get_kepler_data(kic_id, exptime='long'):
     
         
         delta_f = (1/(time_val[-1] - time_val[0]))
+        
         sampling_time= np.median(np.diff(time_val))
 
         if not np.all(np.diff(time_val) > 0.90 * sampling_time): #magic
@@ -654,6 +655,7 @@ def region_and_freq(indices, folding_freq, f_min, unrefined_freq, unrefined_powe
         output_table['region'] = regions
         output_table['delta chi-squared'] = delta_chi2s
         output_table['frequency in region A'] = fas
+        
     except Exception as e:
         print(f"Exception in region_and_freq(): {str(e)}")
         update_error_message(kic_id, 'Kepler_long', str(e))
@@ -902,6 +904,10 @@ def sampling_stats(alls, halves, quartiles, eighths, ts, kicID, output_table):
         #make astropy table
         #print(sigma_phij.shape)
         output_table.add_columns([sigma_phij,  sigma_phi4, phase_change2, phase_change4], names = ['phase uncertainty jackknife', 'phase uncertainty split', 'phase change for A-B split', 'phase change for quartile split'])
+        a_parameter = alls[:,0]
+        b_parameter = alls[:,1]
+        #output_table.add_columns([a_parameter, b_parameter], names = ['Amplitude a', 'Amplitude b'])
+        #output_table.add_columns([a_parameter, b_parameter])
         #print("output table adding columns", output_table)
     except Exception as e:
         print(f"Exception in sampling_stats(): {str(e)}")
