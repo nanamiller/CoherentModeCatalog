@@ -50,6 +50,19 @@ CREATE TABLE mode (
     parent_mode_id INTEGER NULL  
 );
 
+DROP VIEW IF EXISTS parent_modes;
+CREATE VIEW parent_modes AS
+SELECT 
+    m.mode_id,
+    m.star_id,
+    m.frequency as parent_frequency,
+    COUNT(children.mode_id) as num_of_children 
+FROM mode m
+LEFT JOIN mode children ON children.parent_mode_id = m.mode_id 
+WHERE m.parent_mode_id IS NULL
+GROUP BY m.mode_id;
+
+
 
 
 
