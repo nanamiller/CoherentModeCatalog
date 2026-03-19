@@ -56,17 +56,9 @@ SELECT
     m.mode_id,
     m.star_id,
     m.frequency as parent_frequency,
-    COUNT(children.mode_id) as num_of_children 
+    COUNT(children.mode_id) as num_of_children,
+    0.5 * SUM(children.amplitude_a * children.amplitude_a + children.amplitude_b * children.amplitude_b) as variance
 FROM mode m
 LEFT JOIN mode children ON children.parent_mode_id = m.mode_id 
 WHERE m.parent_mode_id IS NULL
 GROUP BY m.mode_id;
-
-
-
-
-
-
-
-
-
