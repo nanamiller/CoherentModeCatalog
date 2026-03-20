@@ -508,12 +508,13 @@ def find_min_and_refine(xs, ys, kic_id):
     
     return refined_x[0], refined_y[0]
 
-def integral_design_matrix(ts, om, T):
+def integral_design_matrix(ts, om, T, M = 1):
     """
     ## Inputs:
     `ts`: list of N times (days)
     `om`: angular frequency (inverse days)
     `T`: exposure time (days)
+    `M`: number of harmonics (default is 1)
 
     ## Outputs:
     `X`: Nx3 design matrix
@@ -522,11 +523,18 @@ def integral_design_matrix(ts, om, T):
     - Assumes all data points have the same exposure time `T`
     - Not numerically stable when `om * T` is small
     """
-    return np.vstack([
+    X =  np.vstack([
         np.ones_like(ts),
         (np.sin(om * (ts + T / 2)) - np.sin(om * (ts - T / 2))) / (om * T),
         (-np.cos(om * (ts + T / 2)) + np.cos(om * (ts - T / 2))) / (om * T)
     ]).T
+    for m in range(2, M + 1):
+        X = np.hstack((X, np.vstack([
+            (np.sin(m * om * (ts + T / 2)) - np.sin(m * om * (ts - T / 2))) / (m * om * T),
+            (-np.cos(m * om * (ts + T / 2)) + np.cos(m * om * (ts - T / 2))) / (m * om * T)
+        ]).T))
+    return X
+
 
 def weighted_least_squares(A, b, weights):
     """
@@ -546,7 +554,7 @@ def weighted_least_squares(A, b, weights):
     ATb = A.T @ (b * weights)
     return np.linalg.solve(ATA, ATb)
 
-def integral_chi_squared(om, ts, ys, ws, T):
+def integral_chi_squared(om, ts, ys, ws, T, M = 1):
     """
     ## Inputs:
     `om`: angular frequency (in inverse days)  
@@ -554,6 +562,7 @@ def integral_chi_squared(om, ts, ys, ws, T):
     `ys`: numpy array of observed flux values  
     `ws`: numpy array of weights (same length as `ts` and `ys`)  
     `T`: exposure time (in days)
+    `M`: number of harmonics to include in the model (default is 1)
 
     ## Outputs:
     Weighted chi-squared value computed using the integral design matrix model
@@ -563,11 +572,11 @@ def integral_chi_squared(om, ts, ys, ws, T):
     - Assumes uniform exposure time `T` for all observations
     - Numerically unstable when `om * T` is small (from `integral_design_matrix`)
     """
-    A = integral_design_matrix(ts, om, T)
+    A = integral_design_matrix(ts, om, T, M = M)
     return np.sum(ws * (ys - (A @ weighted_least_squares(A, ys, ws)))**2)
 
 
-def region_and_freq(indices, folding_freq, f_min, unrefined_freq, unrefined_power, t_fit, flux_fit, weight_fit, T, kic_id):
+def region_and_freq(indices, folding_freq, f_min, unrefined_freq, unrefined_power, t_fit, flux_fit, weight_fit, T, kic_id, M = 1):
     start = time.time()
 
     """
@@ -581,6 +590,7 @@ def region_and_freq(indices, folding_freq, f_min, unrefined_freq, unrefined_powe
     `flux_fit`: observed signal (e.g., flux)  
     `weight_fit`: weights for fitting  
     `T`: exposure time in days
+    `M`: number of harmonics (default is 1)
 
     ## Outputs:
     Three NumPy arrays:
@@ -589,6 +599,7 @@ def region_and_freq(indices, folding_freq, f_min, unrefined_freq, unrefined_powe
     - `best_chi2s`: corresponding chi-squared values
 
     ## Bugs:
+    - Move kic_id input earlier in the calling sequence and add optional input M = 1
     - Assumes `refine_peaks` succeeds for all given indices
     - No handling if `fine_freqsX` are empty or out of bounds
     - probably this should just run on one index at a time, and the loop over indices should ne in the calling function
@@ -613,17 +624,17 @@ def region_and_freq(indices, folding_freq, f_min, unrefined_freq, unrefined_powe
                 fine_freqsA = np.arange(A[i] - 5 * f_min, A[i] + 5 * f_min, 0.2 * f_min) #magic, and so are all fine_freqs
                 #chi2_fineA = np.array([integral_chi_squared(2 * np.pi * f, t_fit, flux_fit, weight_fit, T) for f in fine_freqsA])
                 #print("chi2_fineA", chi2_fineA)
-                chi2_fineA = np.array([integral_chi_squared(2 * np.pi * f, t_fit, flux_fit, weight_fit, T) for f in fine_freqsA])
+                chi2_fineA = np.array([integral_chi_squared(2 * np.pi * f, t_fit, flux_fit, weight_fit, T, M = M) for f in fine_freqsA])
 
                 #print("chi2_fineA", chi2_fineA)
                 best_freqA, best_chi2A = find_min_and_refine(fine_freqsA, chi2_fineA, kic_id)
 
                 fine_freqsB = np.arange(B[i] - 5 * f_min, B[i] + 5 * f_min, 0.2 * f_min)
-                chi2_fineB = np.array([integral_chi_squared(2 * np.pi * f, t_fit, flux_fit, weight_fit, T) for f in fine_freqsB])
+                chi2_fineB = np.array([integral_chi_squared(2 * np.pi * f, t_fit, flux_fit, weight_fit, T, M = M) for f in fine_freqsB])
                 best_freqB, best_chi2B = find_min_and_refine(fine_freqsB, chi2_fineB, kic_id)
 
                 fine_freqsC = np.arange(C[i] - 5 * f_min, C[i] + 5 * f_min, 0.2 * f_min)
-                chi2_fineC = np.array([integral_chi_squared(2 * np.pi * f, t_fit, flux_fit, weight_fit, T) for f in fine_freqsC])
+                chi2_fineC = np.array([integral_chi_squared(2 * np.pi * f, t_fit, flux_fit, weight_fit, T, M = M) for f in fine_freqsC])
                 best_freqC, best_chi2C = find_min_and_refine(fine_freqsC, chi2_fineC, kic_id)
 
                 freqs = np.array([best_freqA, best_freqB, best_freqC])
@@ -750,7 +761,7 @@ def splitting(ts, K, kicID, jackknife = True):
         return np.nan
     return masks
 
-def check_coherence(ts, ys, weights, T, kicID, output_table):
+def check_coherence(ts, ys, weights, T, kicID, output_table, M = 1):
     '''
     ## Inputs:
     - `ts`: time values 
@@ -779,7 +790,7 @@ def check_coherence(ts, ys, weights, T, kicID, output_table):
             if np.isnan(f):
                 continue
             om = f * 2 * np.pi 
-            A = integral_design_matrix(ts, om, T)
+            A = integral_design_matrix(ts, om, T, M = M)
             pars = weighted_least_squares(A, ys, weights)
             all[idx][0] = pars[1]
             all[idx][1] = pars[2]
@@ -793,12 +804,11 @@ def check_coherence(ts, ys, weights, T, kicID, output_table):
                     continue
                 om = f * 2 * np.pi
                 for i, mask in enumerate(masks):
-                    A = integral_design_matrix(ts[mask], om, T)
+                    A = integral_design_matrix(ts[mask], om, T, M = M)
                     pars = weighted_least_squares(A, ys[mask], weights[mask])
                     result[idx][i][0] = pars[1] #a
                     result[idx][i][1] = pars[2] #b
     
-        output_table.add_columns([all[:,0],  all[:,1]], names = ['Amplitude a', 'Amplitude b'])
 
     except Exception as e:
         print(f"Exception in check_coherence(): {str(e)}")
@@ -870,7 +880,7 @@ def sampling_stats(alls, halves, quartiles, eighths, ts, kicID, output_table):
             #quartile and jacknife calcualtions
             deltak_4 = np.zeros((4,2))
             deltak_j = np.zeros((8,2))
-            a,b = all[0], all[1]
+            a,b = all[0], all[1] 
             if np.isnan(a) or np.isnan(b):
                 continue
             
@@ -915,6 +925,22 @@ def sampling_stats(alls, halves, quartiles, eighths, ts, kicID, output_table):
         return None
     return output_table
 
+def add_amplitudes_to_table(ts, ys, weights, T, output_table, M=1):
+    final_freq = output_table["frequency"]
+    for m in range(1, M + 1):
+        a_col = np.full(len(final_freq), np.nan)
+        b_col = np.full(len(final_freq), np.nan)
+        for idx, f in enumerate(final_freq):
+            if np.isnan(f):
+                continue
+            om = f * 2 * np.pi
+            A = integral_design_matrix(ts, om, T, M=M)
+            pars = weighted_least_squares(A, ys, weights)
+            a_col[idx] = pars[2*m - 1]
+            b_col[idx] = pars[2*m]
+        output_table.add_columns([a_col, b_col], names=[f'Amplitude a{m}', f'Amplitude b{m}'])
+    return output_table
+
 def inject_one_mode(ts, ys, T, in_pars):
     '''
     # inject_one_mode()
@@ -947,10 +973,8 @@ def RunningMedian(x, N):
 
 def find_modes_in_star(kicID, plots = False, save = False, inject_rng = None, inject_amp = 0.01, 
                        max_peaks = 100, chi2_threshold = 100, phase_uncertainty_threshold = 0.1, 
-                       median_window = 21, median_factor = 20.): #basically all magic here
-    
-    
-    
+                       median_window = 21, median_factor = 20, M = 1): #basically all magic here
+
     start = time.time()
     #output_dir = os.path.join("testing", f"{kicID}")
     #os.makedirs(output_dir, exist_ok=True)
@@ -1003,7 +1027,7 @@ def find_modes_in_star(kicID, plots = False, save = False, inject_rng = None, in
     
     #find frequencies and corresponding regions
     #regions, final_freqs, chi2s = region_and_freq(indices, fc, df, freq_mini, power_mini, t_fit, flux_fit, weight_fit, exptime) #make the output table
-    output_table = region_and_freq(indices, fc, df, freq_mini, power_mini, t_fit, flux_fit, weight_fit, exptime, kicID) #make the output table
+    output_table = region_and_freq(indices, fc, df, freq_mini, power_mini, t_fit, flux_fit, weight_fit, exptime, kicID, M = M) #make the output table
 
     #print("first output table", output_table)
     #print(f"delta_chi2s for {kicID}:", output_table["delta chi-squared"])
@@ -1015,9 +1039,9 @@ def find_modes_in_star(kicID, plots = False, save = False, inject_rng = None, in
     output_table = output_table[good]
     
     #sharpnesses = sharpness(second_derivatives, refined_power)
-    all, half, quartiles, eighths, output_table = check_coherence(t_fit, flux_fit, weight_fit, exptime, kicID, output_table)
+    all, half, quartiles, eighths, output_table = check_coherence(t_fit, flux_fit, weight_fit, exptime, kicID, output_table, M = M)
 
-    
+    output_table = add_amplitudes_to_table(t_fit, flux_fit, weight_fit, exptime, output_table, M = M)
 
     output_table = sampling_stats(all, half, quartiles, eighths, t_fit, kicID, output_table)
     
@@ -1434,22 +1458,22 @@ def start_one_task():
         conn.close()
         raise
 
-def output_modes_to_db(star_id, dataset_id, output_table):
+def output_modes_to_db(star_id, dataset_id, output_table, M = 1):
     conn = get_db_connection()
     cursor = conn.cursor()
     for row in output_table:
         frequency = row['frequency']
         region = row['region']
         frequency_region_A = row['frequency in region A']
-        amplitude_a = row['Amplitude a']
-        amplitude_b = row['Amplitude b']
         delta_chi_squared = row['delta chi-squared']
         phase_uncertainty_jackknife = row['phase uncertainty jackknife']
         phase_uncertainty_split = row['phase uncertainty split']
+        amp_cols = ', '.join([f'amplitude_a{m}, amplitude_b{m}' for m in range(1, M+1)])
+        amp_vals = ', '.join([f"{row[f'Amplitude a{m}']}, {row[f'Amplitude b{m}']}" for m in range(1, M+1)])
         query = f"""
-        INSERT INTO mode (star_id, dataset_id, frequency, region, frequency_region_A, amplitude_a, amplitude_b,
+        INSERT INTO mode (star_id, dataset_id, frequency, region, frequency_region_A, {amp_cols},
                         delta_chi_squared, phase_uncertainty_jackknife, phase_uncertainty_split)
-        VALUES ('{star_id}', '{dataset_id}', {frequency}, '{region}', {frequency_region_A}, {amplitude_a}, {amplitude_b},
+        VALUES ('{star_id}', '{dataset_id}', {frequency}, '{region}', {frequency_region_A}, {amp_vals},
                 {delta_chi_squared}, {phase_uncertainty_jackknife}, {phase_uncertainty_split});
         """
         cursor.execute(query)
