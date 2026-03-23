@@ -12,6 +12,7 @@ Functions for finding coherent modes in Kepler light curves.
 - Copyright 2025 the authors. This code is licensed for re-use under the *MIT License*.
 
 ## bugs and issues and to-do items:
+- REMOVE all M's from pipeline; M should only be in the fourier series functions
 - KICid should probably be a string not an int.
 - functions should take in a table of frequencies and return augmented table.
 - db username (not nana), needs to be user setable
@@ -344,6 +345,7 @@ def refine_peaks(xs, ys, indices):
     - `second_derivatives`: curvature values (second derivative q for each peak)
 
     ## Bugs:
+    - Code header needs to say what this code does
     - Assumes all `indices` are valid (i.e., between 1 and len(xs) - 2) 
     - Assumes `xs` and `ys` are numpy arrays and ordered
     """
@@ -475,6 +477,7 @@ def find_min_and_refine(xs, ys, kic_id):
     - `refined_y`: y-value at the refined minimum
 
     ## Bugs:
+    - Code header needs to say what this code does
     - Assumes `xs` and `ys` are NumPy arrays of equal length
     - Assumes `xs` is ordered
     - Raises `ValueError` if no local minima are found
@@ -576,7 +579,7 @@ def integral_chi_squared(om, ts, ys, ws, T, M = 1):
     return np.sum(ws * (ys - (A @ weighted_least_squares(A, ys, ws)))**2)
 
 
-def region_and_freq(indices, folding_freq, f_min, unrefined_freq, unrefined_power, t_fit, flux_fit, weight_fit, T, kic_id, M = 1):
+def region_and_freq(indices, folding_freq, f_min, unrefined_freq, unrefined_power, t_fit, flux_fit, weight_fit, T, kic_id):
     start = time.time()
 
     """
@@ -599,6 +602,7 @@ def region_and_freq(indices, folding_freq, f_min, unrefined_freq, unrefined_powe
     - `best_chi2s`: corresponding chi-squared values
 
     ## Bugs:
+    - Outputs here is incorrect, should be the output table, not the arrays
     - Move kic_id input earlier in the calling sequence and add optional input M = 1
     - Assumes `refine_peaks` succeeds for all given indices
     - No handling if `fine_freqsX` are empty or out of bounds
@@ -624,17 +628,17 @@ def region_and_freq(indices, folding_freq, f_min, unrefined_freq, unrefined_powe
                 fine_freqsA = np.arange(A[i] - 5 * f_min, A[i] + 5 * f_min, 0.2 * f_min) #magic, and so are all fine_freqs
                 #chi2_fineA = np.array([integral_chi_squared(2 * np.pi * f, t_fit, flux_fit, weight_fit, T) for f in fine_freqsA])
                 #print("chi2_fineA", chi2_fineA)
-                chi2_fineA = np.array([integral_chi_squared(2 * np.pi * f, t_fit, flux_fit, weight_fit, T, M = M) for f in fine_freqsA])
+                chi2_fineA = np.array([integral_chi_squared(2 * np.pi * f, t_fit, flux_fit, weight_fit, T) for f in fine_freqsA])
 
                 #print("chi2_fineA", chi2_fineA)
                 best_freqA, best_chi2A = find_min_and_refine(fine_freqsA, chi2_fineA, kic_id)
 
                 fine_freqsB = np.arange(B[i] - 5 * f_min, B[i] + 5 * f_min, 0.2 * f_min)
-                chi2_fineB = np.array([integral_chi_squared(2 * np.pi * f, t_fit, flux_fit, weight_fit, T, M = M) for f in fine_freqsB])
+                chi2_fineB = np.array([integral_chi_squared(2 * np.pi * f, t_fit, flux_fit, weight_fit, T) for f in fine_freqsB])
                 best_freqB, best_chi2B = find_min_and_refine(fine_freqsB, chi2_fineB, kic_id)
 
                 fine_freqsC = np.arange(C[i] - 5 * f_min, C[i] + 5 * f_min, 0.2 * f_min)
-                chi2_fineC = np.array([integral_chi_squared(2 * np.pi * f, t_fit, flux_fit, weight_fit, T, M = M) for f in fine_freqsC])
+                chi2_fineC = np.array([integral_chi_squared(2 * np.pi * f, t_fit, flux_fit, weight_fit, T) for f in fine_freqsC])
                 best_freqC, best_chi2C = find_min_and_refine(fine_freqsC, chi2_fineC, kic_id)
 
                 freqs = np.array([best_freqA, best_freqB, best_freqC])
@@ -761,7 +765,7 @@ def splitting(ts, K, kicID, jackknife = True):
         return np.nan
     return masks
 
-def check_coherence(ts, ys, weights, T, kicID, output_table, M = 1):
+def check_coherence(ts, ys, weights, T, kicID, output_table):
     '''
     ## Inputs:
     - `ts`: time values 
@@ -775,6 +779,9 @@ def check_coherence(ts, ys, weights, T, kicID, output_table, M = 1):
     - `half`: shape `(N, 2, 2)` a,b pars fits over halves
     - `quarter`: shape `(N, 4, 2)` a,b pars fits over quarters
     - `eighth`: shape `(N, 8, 2)` a,b pars fits over eighths +(jackknife)
+
+    ## Bugs:
+    - Code needs to say what this code does
     '''
 
     try: 
@@ -790,7 +797,7 @@ def check_coherence(ts, ys, weights, T, kicID, output_table, M = 1):
             if np.isnan(f):
                 continue
             om = f * 2 * np.pi 
-            A = integral_design_matrix(ts, om, T, M = M)
+            A = integral_design_matrix(ts, om, T)
             pars = weighted_least_squares(A, ys, weights)
             all[idx][0] = pars[1]
             all[idx][1] = pars[2]
@@ -804,7 +811,7 @@ def check_coherence(ts, ys, weights, T, kicID, output_table, M = 1):
                     continue
                 om = f * 2 * np.pi
                 for i, mask in enumerate(masks):
-                    A = integral_design_matrix(ts[mask], om, T, M = M)
+                    A = integral_design_matrix(ts[mask], om, T)
                     pars = weighted_least_squares(A, ys[mask], weights[mask])
                     result[idx][i][0] = pars[1] #a
                     result[idx][i][1] = pars[2] #b
@@ -971,9 +978,59 @@ def RunningMedian(x, N):
 
     #return np.array([np.median(c) for c in b])  # This also works
 
+def fit_fourier_series_to_mode(parent_mode_id, M):
+    '''
+    # fit_fourier_series_to_mode()
+    Fit Fourier series to a given mode
+
+    ## Inputs:
+    - `parent_mode_id`: identifier for the mode to fit
+    - `M`: number of harmonics to include in the fit
+
+    ## Comment:
+    - Make sure you get exposure time correct!
+    - This function is a placeholder and needs to be implemented based on the specific requirements of the Fourier fitting process.
+    '''
+    # get the frequency and kicid of this mode from parent view from the db
+    #get the lightcurve for this kicid
+    #get chi2 values at 3 frequencies near the parent frequency
+    freqs = np.array([-epsilon, 0 , epsilon]) + freq
+    chi2s = np.zeros_like(freqs)
+    for i range(len(freqs)):
+        chi2s[i] = integral_chi_squared(2 * np.pi * freqs[i], t_fit, flux_fit, weight_fit, T, M = M)
+    
+    #use parabola trick to find a refined freqeuncy
+    new_freq = find_min_and_refine(freqs, chi2s, kicID) 
+
+    #do the final fourier series fit at the refined frequency
+    om = new_freq * 2 * np.pi 
+    A = integral_design_matrix(ts, om, T, M = M)
+    features = weighted_least_squares(A, ys, weights)
+
+    return new_freq, features
+
+def fit_fourier_series_to_good_parents(M):
+    '''
+    # fit_fourier_series_to_good_parents()
+    Fit Fourier series to all good parent modes
+
+    ## Inputs:
+    - `M`: number of harmonics to include in the fit
+
+    ## Comment:
+    - This function is a placeholder and needs to be implemented based on the specific requirements of the Fourier fitting process for multiple modes.
+    '''
+    #query parnet mode view of db to get all parents with variance > 1e-6
+    #initialize an astropy table, the features will have length 2M + 1
+    #for each parent, call fit_fourier_series_to_mode() and aggregate results
+    for i, parent_mode_id in enumerate(good_parent_mode_ids):
+        new_freq, features = fit_fourier_series_to_mode(parent_mode_id, M)
+        #add new_freq and features to the output table
+    #write a publication quality fits table
+
 def find_modes_in_star(kicID, plots = False, save = False, inject_rng = None, inject_amp = 0.01, 
                        max_peaks = 100, chi2_threshold = 100, phase_uncertainty_threshold = 0.1, 
-                       median_window = 21, median_factor = 20, M = 1): #basically all magic here
+                       median_window = 21, median_factor = 20): #basically all magic here
 
     start = time.time()
     #output_dir = os.path.join("testing", f"{kicID}")
@@ -1027,7 +1084,7 @@ def find_modes_in_star(kicID, plots = False, save = False, inject_rng = None, in
     
     #find frequencies and corresponding regions
     #regions, final_freqs, chi2s = region_and_freq(indices, fc, df, freq_mini, power_mini, t_fit, flux_fit, weight_fit, exptime) #make the output table
-    output_table = region_and_freq(indices, fc, df, freq_mini, power_mini, t_fit, flux_fit, weight_fit, exptime, kicID, M = M) #make the output table
+    output_table = region_and_freq(indices, fc, df, freq_mini, power_mini, t_fit, flux_fit, weight_fit, exptime, kicID) #make the output table
 
     #print("first output table", output_table)
     #print(f"delta_chi2s for {kicID}:", output_table["delta chi-squared"])
@@ -1039,9 +1096,9 @@ def find_modes_in_star(kicID, plots = False, save = False, inject_rng = None, in
     output_table = output_table[good]
     
     #sharpnesses = sharpness(second_derivatives, refined_power)
-    all, half, quartiles, eighths, output_table = check_coherence(t_fit, flux_fit, weight_fit, exptime, kicID, output_table, M = M)
+    all, half, quartiles, eighths, output_table = check_coherence(t_fit, flux_fit, weight_fit, exptime, kicID, output_table)
 
-    output_table = add_amplitudes_to_table(t_fit, flux_fit, weight_fit, exptime, output_table, M = M)
+    output_table = add_amplitudes_to_table(t_fit, flux_fit, weight_fit, exptime, output_table)
 
     output_table = sampling_stats(all, half, quartiles, eighths, t_fit, kicID, output_table)
     
@@ -1468,15 +1525,22 @@ def output_modes_to_db(star_id, dataset_id, output_table, M = 1):
         delta_chi_squared = row['delta chi-squared']
         phase_uncertainty_jackknife = row['phase uncertainty jackknife']
         phase_uncertainty_split = row['phase uncertainty split']
-        amp_cols = ', '.join([f'amplitude_a{m}, amplitude_b{m}' for m in range(1, M+1)])
-        amp_vals = ', '.join([f"{row[f'Amplitude a{m}']}, {row[f'Amplitude b{m}']}" for m in range(1, M+1)])
+        
         query = f"""
-        INSERT INTO mode (star_id, dataset_id, frequency, region, frequency_region_A, {amp_cols},
-                        delta_chi_squared, phase_uncertainty_jackknife, phase_uncertainty_split)
-        VALUES ('{star_id}', '{dataset_id}', {frequency}, '{region}', {frequency_region_A}, {amp_vals},
-                {delta_chi_squared}, {phase_uncertainty_jackknife}, {phase_uncertainty_split});
+            INSERT INTO mode (star_id, dataset_id, frequency, region, frequency_region_A,
+                            delta_chi_squared, phase_uncertainty_jackknife, phase_uncertainty_split)
+            VALUES ('{star_id}', '{dataset_id}', {frequency}, '{region}', {frequency_region_A},
+                    {delta_chi_squared}, {phase_uncertainty_jackknife}, {phase_uncertainty_split});
         """
         cursor.execute(query)
+
+        mode_id = cursor.lastrowid
+
+        for m in range(1, M+1):
+            a = row[f'Amplitude a{m}']
+            b = row[f'Amplitude b{m}']
+            cursor.execute(f"""INSERT INTO amplitude (mode_id, harmonic, amplitude_a, amplitude_b)
+                        VALUES ({mode_id}, {m}, {a}, {b});""")
 
     conn.commit()
     cursor.close()

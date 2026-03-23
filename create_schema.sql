@@ -41,19 +41,21 @@ CREATE TABLE mode (
     star_id VARCHAR(32) NOT NULL,
     dataset_id VARCHAR(32) NOT NULL,
     region VARCHAR(1),
-    amplitude_a1 DOUBLE,
-    amplitude_b1 DOUBLE,
-    amplitude_a2 DOUBLE,
-    amplitude_b2 DOUBLE,
-    amplitude_a3 DOUBLE,
-    amplitude_b3 DOUBLE,
-    amplitude_a4 DOUBLE,
-    amplitude_b4 DOUBLE,
     delta_chi_squared DOUBLE,
     frequency_region_A DOUBLE,
     phase_uncertainty_jackknife DOUBLE,
     phase_uncertainty_split DOUBLE,
     parent_mode_id INTEGER NULL  
+);
+
+DROP TABLE IF EXISTS amplitude;
+CREATE TABLE amplitude (
+    amplitude_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    mode_id INTEGER NOT NULL,
+    harmonic INTEGER NOT NULL,
+    amplitude_a DOUBLE,
+    amplitude_b DOUBLE,
+    FOREIGN KEY (mode_id) REFERENCES mode(mode_id)
 );
 
 DROP VIEW IF EXISTS parent_modes;
@@ -63,8 +65,9 @@ SELECT
     m.star_id,
     m.frequency as parent_frequency,
     COUNT(children.mode_id) as num_of_children,
-    0.5 * SUM(children.amplitude_a * children.amplitude_a + children.amplitude_b * children.amplitude_b) as variance
+    0.5 * SUM(a.amplitude_a * a.amplitude_a + a.amplitude_b * a.amplitude_b) as variance
 FROM mode m
-LEFT JOIN mode children ON children.parent_mode_id = m.mode_id 
+LEFT JOIN mode children ON children.parent_mode_id = m.mode_id
+LEFT JOIN amplitude a ON a.mode_id = children.mode_id AND a.harmonic = 1
 WHERE m.parent_mode_id IS NULL
 GROUP BY m.mode_id;
