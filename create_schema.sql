@@ -17,6 +17,11 @@ CREATE TABLE IF NOT EXISTS dataset (
 DROP TABLE IF EXISTS star;
 CREATE TABLE IF NOT EXISTS star (
     star_id VARCHAR(32),
+    gaia_ra DOUBLE,
+    gaia_dec DOUBLE,
+    gaia_g DOUBLE,
+    gaia_br DOUBLE,
+    gaia_parallax DOUBLE,
     PRIMARY KEY (star_id)
 );
 
@@ -58,8 +63,8 @@ CREATE TABLE amplitude (
     FOREIGN KEY (mode_id) REFERENCES mode(mode_id)
 );
 
-DROP VIEW IF EXISTS parent_modes;
-CREATE VIEW parent_modes AS
+DROP VIEW IF EXISTS parent_mode;
+CREATE VIEW parent_mode AS
 SELECT 
     m.mode_id,
     m.star_id,

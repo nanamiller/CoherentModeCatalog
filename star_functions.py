@@ -992,20 +992,33 @@ def fit_fourier_series_to_mode(parent_mode_id, M):
     - This function is a placeholder and needs to be implemented based on the specific requirements of the Fourier fitting process.
     '''
     # get the frequency and kicid of this mode from parent view from the db
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(f'SELECT star_id, parent_frequency FROM parent_modes WHERE mode_id = {parent_mode_id}')
+    kicID, freq = cursor.fetchone()
     #get the lightcurve for this kicid
+    lc, delta_f, __, exptime = get_kepler_data(kicID)
+    t_fit, flux_fit, weight_fit = mask_vals(lc, kicID)
     #get chi2 values at 3 frequencies near the parent frequency
+    epsilon = 2 * delta_f #magic, should be some small multiple of delta_f
     freqs = np.array([-epsilon, 0 , epsilon]) + freq
     chi2s = np.zeros_like(freqs)
-    for i range(len(freqs)):
-        chi2s[i] = integral_chi_squared(2 * np.pi * freqs[i], t_fit, flux_fit, weight_fit, T, M = M)
+    for i in range(len(freqs)):
+        chi2s[i] = integral_chi_squared(2 * np.pi * freqs[i], t_fit, flux_fit, weight_fit, exptime, M = M)
     
     #use parabola trick to find a refined freqeuncy
     new_freq = find_min_and_refine(freqs, chi2s, kicID) 
 
     #do the final fourier series fit at the refined frequency
+    print(new_freq)
+    print(type(weight_fit))
+    print(type(flux_fit))
+    print(type(exptime))
+    print(exptime)
     om = new_freq * 2 * np.pi 
-    A = integral_design_matrix(ts, om, T, M = M)
-    features = weighted_least_squares(A, ys, weights)
+    A = integral_design_matrix(t_fit, om, exptime, M = M)
+    
+    features = weighted_least_squares(A, flux_fit, weight_fit)
 
     return new_freq, features
 
@@ -1021,11 +1034,31 @@ def fit_fourier_series_to_good_parents(M):
     - This function is a placeholder and needs to be implemented based on the specific requirements of the Fourier fitting process for multiple modes.
     '''
     #query parnet mode view of db to get all parents with variance > 1e-6
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT parent_mode_id FROM parent_mode_view WHERE variance > 1e-6")
+    good_parent_mode_ids = [row[0] for row in cursor.fetchall()]
     #initialize an astropy table, the features will have length 2M + 1
+    output_table = Table()
+    output_table["parent_mode_id"] = []
+    output_table["frequency"] = []
+    output_table["features"] = []
+    output_table['constant'] = []
+    for m in range(1, M+1):
+        output_table[f'amplitude_a{m}'] = []
+        output_table[f'amplitude_b{m}'] = []
+
     #for each parent, call fit_fourier_series_to_mode() and aggregate results
     for i, parent_mode_id in enumerate(good_parent_mode_ids):
         new_freq, features = fit_fourier_series_to_mode(parent_mode_id, M)
         #add new_freq and features to the output table
+        output_table["parent_mode_id"].append(parent_mode_id)
+        output_table["frequency"].append(new_freq)
+        output_table['constant'].append(features[0])
+        for m in range(1, M+1):
+            output_table[f'amplitude_a{m}'].append(features[2*m-1])
+            output_table[f'amplitude_b{m}'].append(features[2*m])
+
     #write a publication quality fits table
 
 def find_modes_in_star(kicID, plots = False, save = False, inject_rng = None, inject_amp = 0.01, 
@@ -1370,7 +1403,7 @@ def get_db_connection():
     #     database='stars_db') this is mysql stuff here
     # conn = db.connect('modes.db.2025-12-28.db', timeout=120.0)
     #aaamodes_copy.db2025-12-28
-    conn = db.connect('modes.db', timeout=120.0)
+    conn = db.connect('/Users/nana/venv/hoggnation/oscillator_catalog/2026-03-19modes.db', timeout=120.0)
 
     conn.execute("PRAGMA journal_mode=WAL")
     return conn
