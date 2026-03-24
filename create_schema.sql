@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS star (
     gaia_g DOUBLE,
     gaia_br DOUBLE,
     gaia_parallax DOUBLE,
+    total_observing_time DOUBLE,
     PRIMARY KEY (star_id)
 );
 
@@ -46,6 +47,8 @@ CREATE TABLE mode (
     star_id VARCHAR(32) NOT NULL,
     dataset_id VARCHAR(32) NOT NULL,
     region VARCHAR(1),
+    amplitude_a DOUBLE,
+    amplitude_b DOUBLE,
     delta_chi_squared DOUBLE,
     frequency_region_A DOUBLE,
     phase_uncertainty_jackknife DOUBLE,
