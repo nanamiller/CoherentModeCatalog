@@ -1018,6 +1018,13 @@ def fit_fourier_series_to_mode(parent_mode_id, M):
 
     return new_freq, features
 
+
+import signal
+
+def timeout_handler(signum, frame):
+    raise TimeoutError("timed out")
+
+
 def fit_fourier_series_to_good_parents(M):
     '''
     # fit_fourier_series_to_good_parents()
@@ -1032,7 +1039,7 @@ def fit_fourier_series_to_good_parents(M):
     #query parnet mode view of db to get all parents with variance > 1e-6
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT mode_id, parent_frequency, star_id, num_of_children FROM parent_modes WHERE variance > 1e-4")
+    cursor.execute("SELECT mode_id, parent_frequency, star_id, num_of_children FROM parent_modes WHERE variance > 1e-5")
     #cursor.execute("SELECT mode_id, parent_frequency, star_id, num_of_children FROM parent_modes WHERE mode_id = 83645")
 
     rows = cursor.fetchall()
@@ -1044,26 +1051,28 @@ def fit_fourier_series_to_good_parents(M):
     orig_freqs = []
     refined_freqs = []
     num_children = []
-    constants = []
-    amp_as = [[] for m in range(1, M+1)]  # one list per harmonic
-    amp_bs = [[] for m in range(1, M+1)]
+    features_ar = []
+    signal.signal(signal.SIGALRM, timeout_handler)
 
     #for each parent, call fit_fourier_series_to_mode() and aggregate results
-    for parent_mode_id, orig_freq, star_id, num_child in rows:
+    for i, (parent_mode_id, orig_freq, star_id, num_child) in enumerate(rows):
         try: 
+            signal.alarm(240)
+            print(f"{i+1}/{len(rows)} - {star_id}", flush=True)
             new_freq, features = fit_fourier_series_to_mode(parent_mode_id, M)
-            print(f"star {star_id}: original freq {orig_freq}, {orig_freq - new_freq} difference")
-            print("REFINED FREQUENCY", new_freq, "M", M)
+            print(f"star {star_id}: original freq {orig_freq}, {orig_freq - new_freq} difference", flush=True)
+            print("REFINED FREQUENCY", new_freq, flush=True)
+            signal.alarm(0)  # disable the alarm
             #add new_freq and features to the output table
             parent_mode_ids.append(parent_mode_id)
             star_ids.append(star_id)
             orig_freqs.append(orig_freq)
             refined_freqs.append(new_freq)
             num_children.append(num_child)
-            constants.append(features[0])
-            for m in range(1, M+1):
-                amp_as[m-1].append(features[2*m-1])
-                amp_bs[m-1].append(features[2*m])
+            features_ar.append(np.array(features, dtype=np.float64))
+        except TimeoutError as te:
+            print(f"Timeout for {star_id} mode {parent_mode_id}: {str(te)}")
+            continue
         except Exception as e:
             print(f"Skipping {star_id} mode {parent_mode_id}: {str(e)}")
             continue
@@ -1074,12 +1083,9 @@ def fit_fourier_series_to_good_parents(M):
     output_table['original_frequency'] = orig_freqs
     output_table['refined_frequency'] = refined_freqs
     output_table['num_children'] = num_children
-    output_table['constant'] = constants
-    for m in range(1, M+1):
-        output_table[f'amplitude_a{m}'] = amp_as[m-1]
-        output_table[f'amplitude_b{m}'] = amp_bs[m-1]
+    output_table['features'] = np.array(features_ar, dtype=np.float64)
 
-    output_table.write('good_parents.fits', overwrite=True)
+    output_table.write('good_parentsfit.fits', overwrite=True)
      
     #write a publication quality fits table
 
