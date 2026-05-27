@@ -1200,6 +1200,7 @@ def find_modes_in_star(kicID, plots = False, save = False, inject_rng = None, in
     sigma_phi4 = output_table['phase uncertainty split']
     sigma_phij = output_table['phase uncertainty jackknife']
     final_freqs = output_table['frequency']
+    print("all star frequencies:", final_freqs)
     phase_change2 = output_table[ 'phase change for A-B split']
     phase_change4 = output_table['phase change for quartile split']
     regions = output_table['region']
@@ -1431,7 +1432,7 @@ def get_db_connection():
     #     database='stars_db') this is mysql stuff here
     # conn = db.connect('modes.db.2025-12-28.db', timeout=120.0)
     #aaamodes_copy.db2025-12-28
-    conn = db.connect('/Users/nana/venv/hoggnation/oscillator_catalog/2026-03-19modes.db', timeout=120.0)
+    conn = db.connect('/Users/natsuki/Projects/hogg_research/hoggnation/oscillator_catalog/2026-03-19modes.db', timeout=120.0)
 
     conn.execute("PRAGMA journal_mode=WAL")
     return conn
