@@ -978,7 +978,7 @@ def RunningMedian(x, N):
 
     #return np.array([np.median(c) for c in b])  # This also works
 
-def fit_fourier_series_to_mode(parent_mode_id, M):
+def fit_fourier_series_to_mode(parent_mode_id, M, makeplots = False):
     '''
     # fit_fourier_series_to_mode()
     Fit Fourier series to a given mode
@@ -1010,6 +1010,24 @@ def fit_fourier_series_to_mode(parent_mode_id, M):
     
     #use parabola trick to find a refined freqeuncy
     new_freq, __ = find_min_and_refine(freqs, chi2s, kicID) 
+
+    #plot chisquare minimumu
+    if makeplots:
+        fine_freqs = np.linspace(freq - 5 * epsilon, freq + 5 * epsilon, 100)
+        fine_chi2s = np.array([integral_chi_squared(2 * np.pi * f, t_fit, flux_fit, weight_fit, exptime, M=M) for f in fine_freqs])
+        plt.figure()
+        plt.plot(fine_freqs, fine_chi2s, label='$\\chi^2$', color = 'black')
+        plt.plot(freqs, chi2s, 'o', color='pink', label='Sampled points')
+        plt.axvline(freq, color='red', alpha=0.5, label='Original frequency')
+        plt.axvline(new_freq, color='green', alpha=0.5, label='Refined frequency')
+        plt.title(f"$\\chi^2$ minimum for {kicID}, bad example")
+        plt.xlabel("Frequency $d^{-1}$")
+        plt.ylabel("$\\chi^2$")
+        plt.legend()
+        plt.show()
+        chi2_min_freq = fine_freqs[np.argmin(fine_chi2s)]
+        print(f"Minimum chi-squared frequency: {chi2_min_freq}, Parabola refined frequency: {new_freq}")
+        print("og freq", freq, "new freq", new_freq)
     #do the final fourier series fit at the refined frequency
     om = new_freq * 2 * np.pi 
     A = integral_design_matrix(t_fit, om, exptime, M = M)
@@ -1039,7 +1057,7 @@ def fit_fourier_series_to_good_parents(M):
     #query parnet mode view of db to get all parents with variance > 1e-6
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT mode_id, parent_frequency, star_id, num_of_children FROM parent_modes WHERE variance > 1e-5")
+    cursor.execute("SELECT mode_id, parent_frequency, star_id, num_of_children FROM parent_modes WHERE variance > 1e-4")
     #cursor.execute("SELECT mode_id, parent_frequency, star_id, num_of_children FROM parent_modes WHERE mode_id = 83645")
 
     rows = cursor.fetchall()
@@ -1085,7 +1103,7 @@ def fit_fourier_series_to_good_parents(M):
     output_table['num_children'] = num_children
     output_table['features'] = np.array(features_ar, dtype=np.float64)
 
-    output_table.write('good_parentsfit.fits', overwrite=True)
+    output_table.write('good_parentsfit_M64.fits', overwrite=True)
      
     #write a publication quality fits table
 
@@ -1691,7 +1709,7 @@ def main():
         setup_db()
         print("Database setup complete.")
         return
-    
+    t
     if len(sys.argv) > 1 and sys.argv[1] == "schema":
         create_schema()
         print("Database schema creation complete.")
@@ -1707,6 +1725,7 @@ def main():
         while(True):
             run_one_task()
         return
+
     
     
     print("Usage:")
