@@ -1000,41 +1000,58 @@ def fit_fourier_series_to_mode(parent_mode_id, M, makeplots = False):
     #get the lightcurve for this kicid
     lc, delta_f, __, exptime = get_kepler_data(kicID)
     t_fit, flux_fit, weight_fit = mask_vals(lc, kicID)
-    #get chi2 values at 3 frequencies near the parent frequency
-    epsilon = 0.5 * delta_f 
-    freqs = np.array([-epsilon, 0 , epsilon]) + freq
-    print("initial frequencies for chi2 evaluation", freqs)
-    chi2s = np.zeros_like(freqs)
-    for i in range(len(freqs)):
-        chi2s[i] = integral_chi_squared(2 * np.pi * freqs[i], t_fit, flux_fit, weight_fit, exptime, M = M)
-    
-    #use parabola trick to find a refined freqeuncy
-    new_freq, __ = find_min_and_refine(freqs, chi2s, kicID) 
 
-    #plot chisquare minimumu
+    #get chi2 values at 3 frequencies near the parent frequency
+
+    #THIS IS FOR WHILE LOOP
+    #epsilon = 0.05*2 * delta_f  
+    epsilon = 0.5 * delta_f
+    freqs = np.array([-epsilon, 0, epsilon]) + freq
+    chi2s = np.zeros_like(freqs)
+
+    #THE WHILE LOOP THAT DOESNT WORK
+    # while True:
+    #     for i in range(len(freqs)):
+    #         chi2s[i] = integral_chi_squared(2 * np.pi * freqs[i], t_fit, flux_fit, weight_fit, exptime, M=M)
+    #     if np.argmin(chi2s) == 1:
+    #         break
+        
+    #     freq = freqs[np.argmin(chi2s)]
+    #     print("DID THIS WORK?")
+
+    for i in range(len(freqs)):
+        chi2s[i] = integral_chi_squared(2 * np.pi * freqs[i], t_fit, flux_fit, weight_fit, exptime, M=M)
+
+    og_refined_freq, og_refined_chi2 = find_min_and_refine(freqs, chi2s, kicID)
+    # refine on fine grid and use chi2 minimum as final frequency
+    fine_freqs = np.linspace(freq - 5 * epsilon, freq + 5 * epsilon, 200)
+    fine_chi2s = np.array([integral_chi_squared(2 * np.pi * f, t_fit, flux_fit, weight_fit, exptime, M=M) for f in fine_freqs])
+    chis2_freq, __ = find_min_and_refine(fine_freqs, fine_chi2s, kicID)
+
+    print("original frequency", freq)
+    print("og refined frequency", og_refined_freq)
+    print("chi2 refined frequency", chis2_freq)
+
+    #plot chi-square minimum
     if makeplots:
         fine_freqs = np.linspace(freq - 5 * epsilon, freq + 5 * epsilon, 100)
         fine_chi2s = np.array([integral_chi_squared(2 * np.pi * f, t_fit, flux_fit, weight_fit, exptime, M=M) for f in fine_freqs])
         plt.figure()
-        plt.plot(fine_freqs, fine_chi2s, label='$\\chi^2$', color = 'black')
+        plt.plot(fine_freqs, fine_chi2s, label='$\\chi^2$', color='black')
         plt.plot(freqs, chi2s, 'o', color='pink', label='Sampled points')
         plt.axvline(freq, color='red', alpha=0.5, label='Original frequency')
-        plt.axvline(new_freq, color='green', alpha=0.5, label='Refined frequency')
-        plt.title(f"$\\chi^2$ minimum for {kicID}, bad example")
+        plt.axvline(chis2_freq, color='green', alpha=0.5, label='Refined frequency')
+        plt.axvline(og_refined_freq, color='blue', alpha=0.5, label='Original refined frequency')
+        plt.title(f"$\\chi^2$ minimum — {kicID}")
         plt.xlabel("Frequency $d^{-1}$")
         plt.ylabel("$\\chi^2$")
         plt.legend()
         plt.show()
-        chi2_min_freq = fine_freqs[np.argmin(fine_chi2s)]
-        print(f"Minimum chi-squared frequency: {chi2_min_freq}, Parabola refined frequency: {new_freq}")
-        print("og freq", freq, "new freq", new_freq)
     #do the final fourier series fit at the refined frequency
-    om = new_freq * 2 * np.pi 
-    A = integral_design_matrix(t_fit, om, exptime, M = M)
-    
+    om =  chis2_freq * 2 * np.pi
+    A = integral_design_matrix(t_fit, om, exptime, M=M)
     features = weighted_least_squares(A, flux_fit, weight_fit)
-
-    return new_freq, features
+    return chis2_freq, features
 
 
 import signal
@@ -1103,7 +1120,7 @@ def fit_fourier_series_to_good_parents(M):
     output_table['num_children'] = num_children
     output_table['features'] = np.array(features_ar, dtype=np.float64)
 
-    output_table.write('good_parentsfit_M64.fits', overwrite=True)
+    output_table.write('good_parentsfit_chi2min.fits', overwrite=True)
      
     #write a publication quality fits table
 
