@@ -1006,7 +1006,8 @@ def fit_fourier_series_to_mode(parent_mode_id, M, makeplots = False):
     #THIS IS FOR WHILE LOOP
     #epsilon = 0.05*2 * delta_f  
     epsilon = 0.5 * delta_f
-    freqs = np.array([-epsilon, 0, epsilon]) + freq
+    freqs = np.array([-epsilon*3, 0, epsilon*3]) + freq
+    print("three freq points:", freqs)
     chi2s = np.zeros_like(freqs)
 
     #THE WHILE LOOP THAT DOESNT WORK
@@ -1015,43 +1016,63 @@ def fit_fourier_series_to_mode(parent_mode_id, M, makeplots = False):
     #         chi2s[i] = integral_chi_squared(2 * np.pi * freqs[i], t_fit, flux_fit, weight_fit, exptime, M=M)
     #     if np.argmin(chi2s) == 1:
     #         break
-        
     #     freq = freqs[np.argmin(chi2s)]
     #     print("DID THIS WORK?")
 
     for i in range(len(freqs)):
         chi2s[i] = integral_chi_squared(2 * np.pi * freqs[i], t_fit, flux_fit, weight_fit, exptime, M=M)
-
-    og_refined_freq, og_refined_chi2 = find_min_and_refine(freqs, chi2s, kicID)
-    # refine on fine grid and use chi2 minimum as final frequency
-    fine_freqs = np.linspace(freq - 5 * epsilon, freq + 5 * epsilon, 200)
-    fine_chi2s = np.array([integral_chi_squared(2 * np.pi * f, t_fit, flux_fit, weight_fit, exptime, M=M) for f in fine_freqs])
-    chis2_freq, __ = find_min_and_refine(fine_freqs, fine_chi2s, kicID)
-
-    print("original frequency", freq)
-    print("og refined frequency", og_refined_freq)
-    print("chi2 refined frequency", chis2_freq)
-
-    #plot chi-square minimum
-    if makeplots:
+    
+    if np.argmin(chi2s) != 1:
         fine_freqs = np.linspace(freq - 5 * epsilon, freq + 5 * epsilon, 100)
         fine_chi2s = np.array([integral_chi_squared(2 * np.pi * f, t_fit, flux_fit, weight_fit, exptime, M=M) for f in fine_freqs])
-        plt.figure()
+        fig = plt.figure()
         plt.plot(fine_freqs, fine_chi2s, label='$\\chi^2$', color='black')
         plt.plot(freqs, chi2s, 'o', color='pink', label='Sampled points')
         plt.axvline(freq, color='red', alpha=0.5, label='Original frequency')
-        plt.axvline(chis2_freq, color='green', alpha=0.5, label='Refined frequency')
-        plt.axvline(og_refined_freq, color='blue', alpha=0.5, label='Original refined frequency')
+        #plt.axvline(chis2_freq, color='green', alpha=0.5, label='Refined frequency')
+        plt.axvline(og_refined_freq, color='blue', alpha=0.5, label='Refined frequency')
         plt.title(f"$\\chi^2$ minimum — {kicID}")
         plt.xlabel("Frequency $d^{-1}$")
         plt.ylabel("$\\chi^2$")
         plt.legend()
         plt.show()
+        plt.close(fig)
+
+    assert np.argmin(chi2s) == 1, (
+            f"Central point is not the minimum"
+            f"chi2s={chi2s}"
+        )
+
+    og_refined_freq, og_refined_chi2 = find_min_and_refine(freqs, chi2s, kicID)
+    
+    #chis2_freq, __ = find_min_and_refine(fine_freqs, fine_chi2s, kicID)
+
+    print("original frequency", freq)
+    print("og refined frequency", og_refined_freq)
+    #print("chi2 refined frequency", chis2_freq)
+
+    #plot chi-square minimum
+    if makeplots:
+        fine_freqs = np.linspace(freq - 5 * epsilon, freq + 5 * epsilon, 100)
+        fine_chi2s = np.array([integral_chi_squared(2 * np.pi * f, t_fit, flux_fit, weight_fit, exptime, M=M) for f in fine_freqs])
+        fig = plt.figure()
+        plt.plot(fine_freqs, fine_chi2s, label='$\\chi^2$', color='black')
+        plt.plot(freqs, chi2s, 'o', color='pink', label='Sampled points')
+        plt.axvline(freq, color='red', alpha=0.5, label='Original frequency')
+        #plt.axvline(chis2_freq, color='green', alpha=0.5, label='Refined frequency')
+        plt.axvline(og_refined_freq, color='blue', alpha=0.5, label='Original refined frequency')
+        plt.title(f"$\\chi^2$ minimum — {kicID}")
+        plt.xlabel("Frequency $d^{-1}$")
+        plt.ylabel("$\\chi^2$")
+        plt.legend()
+
+        plt.show()
+        plt.close(fig)
     #do the final fourier series fit at the refined frequency
-    om =  chis2_freq * 2 * np.pi
+    om =  og_refined_freq * 2 * np.pi
     A = integral_design_matrix(t_fit, om, exptime, M=M)
     features = weighted_least_squares(A, flux_fit, weight_fit)
-    return chis2_freq, features
+    return og_refined_freq, features
 
 
 import signal
