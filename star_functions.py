@@ -996,18 +996,17 @@ def fit_fourier_series_to_mode(parent_mode_id, M, makeplots = False):
     cursor = conn.cursor()
     cursor.execute(f'SELECT star_id, frequency FROM mode WHERE mode_id = {parent_mode_id}')
     kicID, freq = cursor.fetchone()
-    print("kic_id", kicID, "freq", freq)
+    #freq = freq * 0.5
+
     #get the lightcurve for this kicid
     lc, delta_f, __, exptime = get_kepler_data(kicID)
     t_fit, flux_fit, weight_fit = mask_vals(lc, kicID)
 
-    #get chi2 values at 3 frequencies near the parent frequency
 
     #THIS IS FOR WHILE LOOP
     #epsilon = 0.05*2 * delta_f  
     epsilon = 0.5 * delta_f
     freqs = np.array([-epsilon*3, 0, epsilon*3]) + freq
-    print("three freq points:", freqs)
     chi2s = np.zeros_like(freqs)
 
     #THE WHILE LOOP THAT DOESNT WORK
@@ -1030,7 +1029,7 @@ def fit_fourier_series_to_mode(parent_mode_id, M, makeplots = False):
         plt.plot(freqs, chi2s, 'o', color='pink', label='Sampled points')
         plt.axvline(freq, color='red', alpha=0.5, label='Original frequency')
         #plt.axvline(chis2_freq, color='green', alpha=0.5, label='Refined frequency')
-        plt.axvline(og_refined_freq, color='blue', alpha=0.5, label='Refined frequency')
+        #plt.axvline(og_refined_freq, color='blue', alpha=0.5, label='Original frequency')
         plt.title(f"$\\chi^2$ minimum — {kicID}")
         plt.xlabel("Frequency $d^{-1}$")
         plt.ylabel("$\\chi^2$")
@@ -1046,9 +1045,6 @@ def fit_fourier_series_to_mode(parent_mode_id, M, makeplots = False):
     og_refined_freq, og_refined_chi2 = find_min_and_refine(freqs, chi2s, kicID)
     
     #chis2_freq, __ = find_min_and_refine(fine_freqs, fine_chi2s, kicID)
-
-    print("original frequency", freq)
-    print("og refined frequency", og_refined_freq)
     #print("chi2 refined frequency", chis2_freq)
 
     #plot chi-square minimum
