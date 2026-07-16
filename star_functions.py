@@ -999,7 +999,7 @@ def fit_fourier_series_to_mode(parent_mode_id, M, makeplots = False):
     #freq = freq * 0.5
 
     #get the lightcurve for this kicid
-    lc, delta_f, __, exptime = get_kepler_data(kicID)
+    lc, delta_f, sampling_time, exptime = get_kepler_data(kicID)
     t_fit, flux_fit, weight_fit = mask_vals(lc, kicID)
 
 
