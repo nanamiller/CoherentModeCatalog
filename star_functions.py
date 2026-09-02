@@ -511,32 +511,6 @@ def find_min_and_refine(xs, ys, kic_id):
     
     return refined_x[0], refined_y[0]
 
-def integral_design_matrix(ts, om, T, M = 1):
-    """
-    ## Inputs:
-    `ts`: list of N times (days)
-    `om`: angular frequency (inverse days)
-    `T`: exposure time (days)
-    `M`: number of harmonics (default is 1)
-
-    ## Outputs:
-    `X`: Nx3 design matrix
-
-    ## Bugs:
-    - Assumes all data points have the same exposure time `T`
-    - Not numerically stable when `om * T` is small
-    """
-    X =  np.vstack([
-        np.ones_like(ts),
-        (np.sin(om * (ts + T / 2)) - np.sin(om * (ts - T / 2))) / (om * T),
-        (-np.cos(om * (ts + T / 2)) + np.cos(om * (ts - T / 2))) / (om * T)
-    ]).T
-    for m in range(2, M + 1):
-        X = np.hstack((X, np.vstack([
-            (np.sin(m * om * (ts + T / 2)) - np.sin(m * om * (ts - T / 2))) / (m * om * T),
-            (-np.cos(m * om * (ts + T / 2)) + np.cos(m * om * (ts - T / 2))) / (m * om * T)
-        ]).T))
-    return X
 
 
 def weighted_least_squares(A, b, weights):
